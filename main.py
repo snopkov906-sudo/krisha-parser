@@ -71,7 +71,14 @@ def build_list_url_from_map(map_url: str) -> str:
     areas = (qs.get("areas") or [""])[0]
     if not areas:
         raise ValueError("? map-?????? ??????????? ???????? areas")
-    return f"https://krisha.kz/prodazha/kvartiry/shymkent/?{urlencode({'areas': areas})}"
+
+    # Keep map polygon + all DAS filters from map URL (for example das[price][to]).
+    list_params = {"areas": areas}
+    for key, values in qs.items():
+        if key.startswith("das[") and values:
+            list_params[key] = values[0]
+
+    return f"https://krisha.kz/prodazha/kvartiry/shymkent/?{urlencode(list_params)}"
 
 
 def build_page_url(base_list_url: str, page: int) -> str:
