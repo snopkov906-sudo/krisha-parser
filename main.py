@@ -1,5 +1,6 @@
 import json
 import re
+import time
 from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urljoin, urlparse
 
@@ -34,6 +35,12 @@ TARGET_ROOMS = 2
 SEEN_IDS_FILE = Path("seen_ids.json")
 TELEGRAM_BOT_TOKEN = ""
 TELEGRAM_CHAT_ID = "-5128105376"
+REQUEST_TIMEOUT = 30
+REQUEST_RETRIES = 3
+RETRY_BACKOFF_SEC = 2
+REQUEST_DELAY_SEC = 0.7
+MAX_CONSECUTIVE_FAILURES = 5
+MAX_PAGES = None
 
 
 def clean_text(value: str) -> str:
@@ -119,6 +126,21 @@ def parse_page(html: str):
     return items
 
 
+def get_with_retries(session: requests.Session, url: str):
+    last_exc = None
+    for attempt in range(1, REQUEST_RETRIES + 1):
+        try:
+            resp = session.get(url, timeout=REQUEST_TIMEOUT)
+            resp.raise_for_status()
+            return resp
+        except requests.RequestException as exc:
+            last_exc = exc
+            print(f"Request failed (attempt {attempt}/{REQUEST_RETRIES}): {url}")
+            if attempt < REQUEST_RETRIES:
+                time.sleep(RETRY_BACKOFF_SEC * attempt)
+    raise last_exc
+
+
 def scrape_all(max_pages: int | None = None):
     list_url = build_list_url_from_map(MAP_URL)
 
@@ -127,15 +149,24 @@ def scrape_all(max_pages: int | None = None):
 
     all_items = []
     page = 1
+    consecutive_failures = 0
     while True:
         if max_pages is not None and page > max_pages:
             break
 
         page_url = build_page_url(list_url, page)
         print(f"???????: {page_url}")
-
-        response = session.get(page_url, timeout=30)
-        response.raise_for_status()
+        try:
+            response = get_with_retries(session, page_url)
+            consecutive_failures = 0
+        except requests.RequestException as exc:
+            consecutive_failures += 1
+            print(f"Skip page due to network error: {page_url}. Error: {exc}")
+            if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                print("Too many consecutive failures. Stop pagination.")
+                break
+            page += 1
+            continue
 
         page_items = parse_page(response.text)
         print(f"??????? ?????????? ?? ????????: {len(page_items)}")
@@ -145,6 +176,7 @@ def scrape_all(max_pages: int | None = None):
 
         all_items.extend(page_items)
         page += 1
+        time.sleep(REQUEST_DELAY_SEC)
 
     rows = list({row[COL_LINK]: row for row in all_items}.values())
     if not rows:
@@ -268,12 +300,15 @@ def run(max_pages: int | None = None):
 def load_env_overrides():
     import os
 
-    global TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+    global TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, MAX_PAGES
 
     TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", TELEGRAM_BOT_TOKEN)
     TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", TELEGRAM_CHAT_ID)
+    max_pages_raw = os.getenv("MAX_PAGES", "").strip()
+    if max_pages_raw:
+        MAX_PAGES = int(max_pages_raw)
 
 
 if __name__ == "__main__":
     load_env_overrides()
-    run(max_pages=None)
+    run(max_pages=MAX_PAGES)
