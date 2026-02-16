@@ -2,8 +2,8 @@ name: Krisha Daily Parser
 
 on:
   schedule:
-    # 04:00 UTC = 09:00 Asia/Almaty (Astana)
-    - cron: '0 4 * * *'
+    # 17:00 UTC = 22:00 Asia/Almaty (Astana)
+    - cron: '0 17 * * *'
   workflow_dispatch:
 
 permissions:
@@ -31,6 +31,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MAX_PAGES: ${{ vars.MAX_PAGES }}
         run: python main.py
 
       - name: Commit seen_ids.json if changed

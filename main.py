@@ -256,6 +256,12 @@ def send_telegram_message(token: str, chat_id: str, text: str):
 
 def notify_new_ads(new_rows: list[dict], token: str, chat_id: str):
     if not new_rows:
+        send_telegram_message(
+            token,
+            chat_id,
+            "\u041d\u043e\u0432\u044b\u0445 \u043e\u0431\u044a\u044f\u0432\u043b\u0435\u043d\u0438\u0439 \u043d\u0435\u0442. "
+            "\u041d\u0438\u0447\u0435\u0433\u043e \u0441\u0442\u0440\u0430\u0448\u043d\u043e\u0433\u043e, \u0436\u0434\u0438\u0442\u0435 \u0437\u0430\u0432\u0442\u0440\u0430.",
+        )
         print("????? ?????????? ??? ?????? ???.")
         return
 
