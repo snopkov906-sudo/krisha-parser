@@ -2,8 +2,8 @@ name: Krisha Daily Parser
 
 on:
   schedule:
-    # Every hour at minute 0
-    - cron: '0 * * * *'
+    # Every 10 minutes
+    - cron: '*/10 * * * *'
   workflow_dispatch:
 
 permissions:
